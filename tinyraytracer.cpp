@@ -40,6 +40,8 @@ struct Sphere {
     vec3 center;
     float radius;
     Material material;
+    
+    Sphere(const vec3& c, float r, const Material& m) : center(c), radius(r), material(m) {}
 };
 
 constexpr Material      ivory = {1.0, {0.9,  0.5, 0.1, 0.0}, {0.4, 0.4, 0.3},   50.};
@@ -51,7 +53,7 @@ constexpr Material      red_rubber = {1.0, {1.4,  0.3, 0.0, 0.0}, {0.3, 0.1, 0.1
 constexpr Material      mirror = {1.0, {0.0, 16.0, 0.8, 0.0}, {1.0, 1.0, 1.0}, 1425.};
 
 
-constexpr Sphere spheres[] = {
+std::vector<Sphere> spheres = {
     {{0,    -1,   -16}, 3,      white},
     {{0, 2.5, -15}, 2,      white},
     {{0, 3, -13.425}, 0.5,      brown},
@@ -71,6 +73,35 @@ constexpr Light lights[] = {
     {vec3{ 30, 50, -25}, vec3{3., 3., 3.}},
     {vec3{ 30, 20,  30}, vec3{3., 3., 3.}}
 };
+
+void init(){
+    float dVert = 0.01f;
+    float dHori = 0.05f;
+    float dZ    = 0.005f;
+    int nbS = 30;
+    //hands
+    for(int i = 0; i < nbS; i++) {
+        Sphere s1 = {{ 2.f + i * dHori, 2.5f + i * dVert, -15.f - i * dZ}, 0.1f, black};
+        Sphere s2 = {{-2.f - i * dHori, 2.5f + i * dVert, -15.f - i * dZ}, 0.1f, black};
+        spheres.push_back(s1);
+        spheres.push_back(s2);
+    }
+    Sphere leftHand  = {{ 2.5f + nbS * dHori, 2.5f + nbS * dVert, -15.f }, 0.5f, ivory};
+    Sphere rightHand = {{-2.5f - nbS * dHori, 2.5f + nbS * dVert, -15.f }, 0.5f, ivory};
+    spheres.push_back(leftHand);
+    spheres.push_back(rightHand);
+    
+    int nbs = 10;
+    float dVert2 = 0.003f;
+    float dHori2 = 0.03f;
+    //smile
+    for(int j = 0; j< nbs; j++) {
+        Sphere s1 = {{ 0.f + j * dHori2, 3.7f + j * dVert2, -11.f }, 0.1f, red_rubber};
+        Sphere s2 = {{ 0.f - j * dHori2, 3.7f + j * dVert2, -11.f }, 0.1f, red_rubber};
+        spheres.push_back(s1);
+        spheres.push_back(s2);
+    }
+}
 
 //Attenuation of light
 constexpr float kC = 1.0;  // constant
@@ -176,6 +207,7 @@ int main() {
     constexpr int   height = 768;
     constexpr float fov    = 1.05; // 60 degrees field of view in radians
     std::vector<vec3> framebuffer(width*height);
+    init();
 #pragma omp parallel for
     for (int pix = 0; pix<width*height; pix++) { // actual rendering loop
         float dir_x =  (pix%width + 0.5) -  width/2.;
