@@ -61,11 +61,21 @@ constexpr Sphere spheres[] = {
     {{0.5, 4.5, -11}, 0.125, black}
 };
 
-constexpr vec3 lights[] = {
-    {-20, 20,  20},
-    { 30, 50, -25},
-    { 30, 20,  30}
+struct Light {
+    vec3 position;
+    vec3 intensity;
 };
+
+constexpr Light lights[] = {
+    {vec3{-20, 20,  20}, vec3{3., 3., 3.}},
+    {vec3{ 30, 50, -25}, vec3{3., 3., 3.}},
+    {vec3{ 30, 20,  30}, vec3{3., 3., 3.}}
+};
+
+//Attenuation of light
+constexpr float kC = 1.0;  // constant
+constexpr float kL = 0.04; // lineaire
+constexpr float kQ = 0.0008; // quadratic
 
 vec3 reflect(const vec3 &I, const vec3 &N) {
     return I - N*2.f*(I*N);
@@ -136,21 +146,29 @@ vec3 cast_ray(const vec3 &orig, const vec3 &dir, const int depth=0) {
     vec3 refract_dir = refract(dir, N, material.refractive_index).normalized();
     vec3 reflect_color = cast_ray(point, reflect_dir, depth + 1);
     vec3 refract_color = cast_ray(point, refract_dir, depth + 1);
+    vec3 ambient_light = {0.2f, 0.2f, 0.2f};
+    vec3 ambient_component = {1.0f * ambient_light.x, 1.0f * ambient_light.y, 1.0f * ambient_light.z};
+
 
     float diffuse_light_intensity = 0, specular_light_intensity = 0;
-    for (const vec3 &light : lights) { // checking if the point lies in the shadow of the light
-        vec3 light_dir = (light - point).normalized();
+    for (const Light &light : lights) { // checking if the point lies in the shadow of the light
+        vec3 light_dir = (light.position - point).normalized();
+        float light_distance = (light.position - point).norm();
+        float attenuation = 1.0 / (kC + kL * light_distance + kQ * light_distance * light_distance);
+        const float dShadow = 1e-3;// to avoid self-shadowing
+        auto shadow_ray_orig = (light_dir*N) < 0 ? point - N*dShadow : point + N*dShadow;
         //auto [hit, shadow_pt, trashnrm, trashmat] = scene_intersect(point, light_dir);
-		auto tuplevalue = scene_intersect(point, light_dir);
+		auto tuplevalue = scene_intersect(shadow_ray_orig, light_dir);
 		auto hit = std::get<0>(tuplevalue);
 		auto shadow_pt = std::get<1>(tuplevalue);
 		auto trashnrm = std::get<2>(tuplevalue);
 		auto trashmat = std::get<3>(tuplevalue);
-        if (hit && (shadow_pt-point).norm() < (light-point).norm()) continue;
-        diffuse_light_intensity  += std::max(0.f, light_dir*N);
-        specular_light_intensity += std::pow(std::max(0.f, -reflect(-light_dir, N)*dir), material.specular_exponent);
+        if (hit && (shadow_pt-shadow_ray_orig).norm() < light_distance) continue;
+        diffuse_light_intensity  += std::max(0.f, light_dir*N) * attenuation * light.intensity.x;
+        vec3 reflect_dir = reflect(-light_dir, N);
+        specular_light_intensity += std::pow(std::max(0.f, reflect_dir.normalized()*dir.normalized()), material.specular_exponent) * attenuation * light.intensity.x;
     }
-    return material.diffuse_color * diffuse_light_intensity * material.albedo[0] + vec3{1., 1., 1.}*specular_light_intensity * material.albedo[1] + reflect_color*material.albedo[2] + refract_color*material.albedo[3];
+    return material.diffuse_color * diffuse_light_intensity * material.albedo[0] + ambient_component + vec3{1., 1., 1.}*specular_light_intensity * material.albedo[1] + reflect_color*material.albedo[2] + refract_color*material.albedo[3];
 }
 
 int main() {
